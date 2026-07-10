@@ -12,7 +12,6 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "start": "tsx server/index.ts",
-    "registry:build": "node scripts/build-community-registry.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b"

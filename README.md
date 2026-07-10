@@ -17,7 +17,6 @@ Secret NFTs are private by design, so this app does not pretend to be a magic gl
 - Leap wallet connection
 - LCD endpoint selector and health check
 - SQLite-backed SNIP-721 collection registry
-- Seeded Stashh community registry with 2,001 verified collection contracts
 - Manual/imported SNIP-721 collection manifests
 - Automatic code-hash lookup and registry persistence
 - Query permit signing for `owner` permission
@@ -87,15 +86,7 @@ npm run build
 }
 ```
 
-`data/community-collections.json` is the seed file for a community registry. It currently contains a Stashh-heavy seed of 2,001 SNIP-721 collection contracts verified from Secret chain state.
-
-Rebuild it with:
-
-```bash
-npm run registry:build -- --output data/community-collections.json
-```
-
-Source notes and trust boundaries are in [SNIP-721 Registry Sources](docs/SNIP721_REGISTRY_SOURCES.md).
+`data/community-collections.json` is the seed file for a community registry. It is intentionally empty until we have trustworthy Stashh/Secret NFT contract data.
 
 ## Docs
 

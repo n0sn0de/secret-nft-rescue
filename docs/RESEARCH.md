@@ -60,28 +60,6 @@ Sources:
 - https://docs.scrt.network/secret-network-documentation/development/resources-api-contract-addresses/connecting-to-the-network/mainnet-secret-4
 - https://github.com/cosmos/chain-registry/blob/master/secretnetwork/chain.json
 
-## Registry Source Findings
-
-- `https://stashh.io` still serves a static frontend bundle, even though obvious API hostnames such as `api.stashh.io` are not a reliable registry source.
-- The surviving Stashh bundle identifies Secret mainnet context and Stashh collection-code evidence. Do not commit copied frontend bundles or sensitive-looking public app config; only contract/code evidence is needed.
-- Secret REST compute endpoints on Lavender.Five exposed the reproducible chain paths needed for registry building:
-  - `/compute/v1beta1/code_hash/by_code_id/{code_id}`
-  - `/compute/v1beta1/contracts/{code_id}`
-  - `/compute/v1beta1/info/{contract_address}`
-  - `/compute/v1beta1/code_hash/by_contract_address/{contract_address}`
-- Verified Stashh SNIP-721 collection code IDs:
-  - `618`, code hash `4dd433b8d9c234c33f27bcd14f3348bc57d96440a92b77cee7d0c925b8eed58e`, `685` Stashh-labeled contracts.
-  - `1279`, code hash `5783910afb89189caf0ef246e40fef5f00541bfb33eb576bd3ebaf87ae3a8d4f`, `1,316` Stashh-labeled contracts.
-- `data/community-collections.json` now contains `2,001` Stashh-labeled contracts from those two verified code IDs.
-- Broad all-code scans can trigger public endpoint rate limits. The rebuild script intentionally scans only verified Stashh collection code IDs unless the operator explicitly extends it.
-
-Sources:
-
-- https://stashh.io
-- https://rest.lavenderfive.com:443/secretnetwork
-- `docs/SNIP721_REGISTRY_SOURCES.md`
-- `scripts/build-community-registry.mjs`
-
 ## Product Implication
 
 The honest MVP is not a global marketplace clone. It is a wallet-authenticated recovery console:
