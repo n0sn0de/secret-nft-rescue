@@ -21,6 +21,8 @@ Secret NFTs are private by design, so this app does not pretend to be a full pub
 - Owned token query with `with_permit -> tokens`
 - Token metadata query with `with_permit -> nft_dossier`
 - `all_nft_info` fallback
+- IPFS/HTTP `token_uri` metadata fetch
+- Art preview, description, attributes, source links, and raw metadata JSON display
 - Local JSON recovery archive export
 
 ## Run Locally

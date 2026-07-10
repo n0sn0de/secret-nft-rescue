@@ -35,12 +35,31 @@ export type WalletConnection = {
   endpoint: Endpoint
 }
 
+export type TokenAttribute = {
+  traitType: string
+  value: string
+  displayType?: string
+}
+
+export type ResolvedMetadata = {
+  uri: string
+  gatewayUrl: string
+  fetchedAt?: string
+  payload?: unknown
+  error?: string
+}
+
 export type TokenDossier = {
   tokenId: string
   owner?: string
   name?: string
+  description?: string
   image?: string
+  animationUrl?: string
+  externalUrl?: string
   tokenUri?: string
+  attributes: TokenAttribute[]
+  resolvedMetadata?: ResolvedMetadata
   publicMetadata?: unknown
   privateMetadata?: unknown
   raw: unknown

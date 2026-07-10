@@ -41,10 +41,12 @@ The app should be a recovery console, not a custodial marketplace.
    - Query owned token IDs with `with_permit -> tokens`.
    - Query each token with `with_permit -> nft_dossier`.
    - Fall back to `all_nft_info` where dossier is unavailable.
+   - Fetch `token_uri` JSON from HTTP/IPFS/Arweave where available.
+   - Render art/media, descriptions, attributes, source links, and metadata JSON.
 
 5. Export
    - Download JSON archive.
-   - Include app version, generated timestamp, owner address, endpoint, collections, token IDs, metadata/dossier payloads, and errors.
+   - Include app version, generated timestamp, owner address, endpoint, collections, token IDs, metadata/dossier payloads, resolved token URI payloads, media URLs, and errors.
    - Exclude query permit signatures.
 
 ## Near-Term Iterations

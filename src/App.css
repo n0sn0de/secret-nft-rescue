@@ -227,7 +227,7 @@ textarea:focus-visible {
 
 .collection-row > div,
 .recovery-row > div:last-child,
-.token-card > div:last-child {
+.token-body {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -324,7 +324,7 @@ textarea:focus-visible {
 .token-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   margin-top: 22px;
 }
 
@@ -335,7 +335,7 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
-.token-card > div:last-child {
+.token-body {
   padding: 10px;
 }
 
@@ -343,21 +343,98 @@ textarea:focus-visible {
   align-items: center;
   aspect-ratio: 1;
   background: linear-gradient(135deg, #e8eef2, #f7f8fb);
+  color: var(--muted);
   display: flex;
   justify-content: center;
+  text-decoration: none;
 }
 
-.token-media img {
+.token-media img,
+.token-media video {
   height: 100%;
   object-fit: cover;
   width: 100%;
 }
 
-.token-media span {
-  background: var(--border-strong);
-  border-radius: 50%;
-  height: 28px;
-  width: 28px;
+.empty-media {
+  border-bottom: 1px solid var(--border);
+}
+
+.token-description {
+  color: var(--muted);
+  display: -webkit-box;
+  font-size: 14px;
+  line-height: 1.35;
+  margin-top: 4px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.attribute-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.attribute-list span {
+  background: var(--band);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 7px;
+  text-transform: none;
+}
+
+.metadata-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.metadata-links a {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 5px;
+  padding: 5px 8px;
+  text-decoration: none;
+}
+
+.metadata-details {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.metadata-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.metadata-details pre {
+  background: #101716;
+  border-radius: 6px;
+  color: #d6ebe5;
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .export-row {

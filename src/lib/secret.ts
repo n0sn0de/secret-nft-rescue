@@ -1,5 +1,11 @@
 import { SecretNetworkClient } from 'secretjs'
 import { CHAIN_ID } from '../constants'
+import {
+  extractMetadataDisplay,
+  hydrateTokenMetadata,
+  mergeDisplay,
+  normalizeResourceUrl,
+} from './metadata'
 import type {
   CollectionManifest,
   CollectionRecovery,
@@ -218,7 +224,7 @@ async function queryTokenDossier(
       },
     })
 
-    return dossierFromResponse(tokenId, response, 'nft_dossier')
+    return await dossierFromResponse(tokenId, response, 'nft_dossier')
   } catch (dossierError) {
     try {
       const response = await connection.client.query.snip721.GetTokenInfo({
@@ -227,10 +233,15 @@ async function queryTokenDossier(
         token_id: tokenId,
       })
 
-      return dossierFromResponse(tokenId, response as unknown as QueryResponse, 'all_nft_info')
+      return await dossierFromResponse(
+        tokenId,
+        response as unknown as QueryResponse,
+        'all_nft_info',
+      )
     } catch (fallbackError) {
       return {
         tokenId,
+        attributes: [],
         raw: {},
         query: 'nft_dossier',
         error: `${errorMessage(dossierError)}; fallback failed: ${errorMessage(fallbackError)}`,
@@ -239,42 +250,49 @@ async function queryTokenDossier(
   }
 }
 
-function dossierFromResponse(
+async function dossierFromResponse(
   tokenId: string,
   response: QueryResponse,
   query: TokenDossier['query'],
-): TokenDossier {
+): Promise<TokenDossier> {
   const dossier = (response.nft_dossier ?? response.all_nft_info ?? response) as QueryResponse
   const publicMetadata = dossier.public_metadata ?? getNested(dossier, ['info'])
   const privateMetadata = dossier.private_metadata
-  const preferredMetadata = privateMetadata ?? publicMetadata
-  const extension = getNested(preferredMetadata, ['extension']) as QueryResponse | undefined
-  const tokenUri = getNested(preferredMetadata, ['token_uri'])
-  const name = getString(extension, 'name') ?? tokenId
-  const image =
-    getString(extension, 'image') ??
-    getString(extension, 'image_url') ??
-    getString(extension, 'animation_url')
-
-  return {
+  const publicDisplay = extractMetadataDisplay(publicMetadata)
+  const privateDisplay = extractMetadataDisplay(privateMetadata)
+  const display = {
+    name: privateDisplay.name ?? publicDisplay.name,
+    description: privateDisplay.description ?? publicDisplay.description,
+    image: privateDisplay.image ?? publicDisplay.image,
+    animationUrl: privateDisplay.animationUrl ?? publicDisplay.animationUrl,
+    externalUrl: privateDisplay.externalUrl ?? publicDisplay.externalUrl,
+    tokenUri: privateDisplay.tokenUri ?? publicDisplay.tokenUri,
+    attributes:
+      privateDisplay.attributes.length > 0
+        ? privateDisplay.attributes
+        : publicDisplay.attributes,
+  }
+  const tokenUri = display.tokenUri
+  const baseToken: TokenDossier = {
     tokenId,
     owner: typeof dossier.owner === 'string' ? dossier.owner : undefined,
-    name,
-    image: normalizeMediaUrl(image),
-    tokenUri: typeof tokenUri === 'string' ? tokenUri : undefined,
+    name: tokenId,
+    attributes: [],
     publicMetadata,
     privateMetadata,
     raw: response,
     query,
   }
-}
 
-function normalizeMediaUrl(value?: string) {
-  if (!value) return undefined
-  if (value.startsWith('ipfs://')) {
-    return `https://ipfs.io/ipfs/${value.slice('ipfs://'.length)}`
-  }
-  return value
+  return await hydrateTokenMetadata(
+    mergeDisplay(baseToken, {
+      ...display,
+      tokenUri,
+      image: normalizeResourceUrl(display.image),
+      animationUrl: normalizeResourceUrl(display.animationUrl),
+      externalUrl: normalizeResourceUrl(display.externalUrl),
+    }),
+  )
 }
 
 function getNested(value: unknown, path: string[]) {
@@ -282,12 +300,6 @@ function getNested(value: unknown, path: string[]) {
     if (typeof current !== 'object' || current === null) return undefined
     return (current as Record<string, unknown>)[key]
   }, value)
-}
-
-function getString(value: unknown, key: string) {
-  if (typeof value !== 'object' || value === null) return undefined
-  const field = (value as Record<string, unknown>)[key]
-  return typeof field === 'string' ? field : undefined
 }
 
 export function errorMessage(error: unknown) {

@@ -9,6 +9,7 @@ Secret NFT Rescue is designed as a browser-only tool.
 - Query permits are kept in memory only.
 - Token query results are not persisted automatically.
 - Export files are explicit user downloads.
+- Fetching IPFS/HTTP token metadata is a browser-side request to the selected gateway or host. That gateway can see the requested CID/URL.
 
 ## Known Dependency Risk
 

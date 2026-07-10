@@ -2,9 +2,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  ExternalLink,
   FileDown,
   FileUp,
+  FileText,
+  ImageIcon,
   KeyRound,
+  Link,
   Loader2,
   Plus,
   RefreshCw,
@@ -13,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import './App.css'
 import {
   APP_NAME,
@@ -44,6 +49,7 @@ import type {
   CollectionRecovery,
   EndpointHealth,
   RecoveryArchive,
+  TokenDossier,
   WalletConnection,
   WalletProviderId,
 } from './types'
@@ -500,12 +506,24 @@ function App() {
             {recoveries.flatMap((recovery) =>
               recovery.tokens.map((token) => (
                 <article className="token-card" key={`${recovery.collectionId}-${token.tokenId}`}>
-                  <div className="token-media">
-                    {token.image ? <img src={token.image} alt="" loading="lazy" /> : <span />}
-                  </div>
-                  <div>
+                  <MediaPreview token={token} />
+                  <div className="token-body">
                     <strong>{token.name ?? token.tokenId}</strong>
-                    <span>{token.error ? 'query error' : token.query}</span>
+                    <span>{tokenStatus(token)}</span>
+                    {token.description ? (
+                      <p className="token-description">{token.description}</p>
+                    ) : null}
+                    {token.attributes.length > 0 ? (
+                      <div className="attribute-list">
+                        {token.attributes.slice(0, 8).map((attribute) => (
+                          <span key={`${attribute.traitType}-${attribute.value}`}>
+                            {attribute.traitType}: {attribute.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <MetadataLinks token={token} />
+                    <MetadataDetails token={token} />
                   </div>
                 </article>
               )),
@@ -549,6 +567,102 @@ function countRecovered(recoveries: CollectionRecovery[]) {
     (total, recovery) => total + recovery.tokens.filter((token) => !token.error).length,
     0,
   )
+}
+
+function MediaPreview({ token }: { token: TokenDossier }) {
+  if (token.image) {
+    return (
+      <a className="token-media" href={token.image} target="_blank" rel="noreferrer">
+        <img src={token.image} alt={token.name ?? token.tokenId} loading="lazy" />
+      </a>
+    )
+  }
+
+  if (token.animationUrl && isVideoUrl(token.animationUrl)) {
+    return (
+      <div className="token-media">
+        <video controls preload="metadata" src={token.animationUrl} />
+      </div>
+    )
+  }
+
+  if (token.animationUrl) {
+    return (
+      <a className="token-media empty-media" href={token.animationUrl} target="_blank" rel="noreferrer">
+        <ExternalLink size={26} />
+      </a>
+    )
+  }
+
+  return (
+    <div className="token-media empty-media">
+      <ImageIcon size={30} />
+    </div>
+  )
+}
+
+function MetadataLinks({ token }: { token: TokenDossier }) {
+  const links: Array<{ label: string; href: string; icon: ReactNode }> = []
+
+  if (token.tokenUri) {
+    links.push({
+      label: 'metadata',
+      href: token.resolvedMetadata?.gatewayUrl ?? token.tokenUri,
+      icon: <FileText size={15} />,
+    })
+  }
+
+  if (token.image) {
+    links.push({
+      label: 'art',
+      href: token.image,
+      icon: <ImageIcon size={15} />,
+    })
+  }
+
+  if (token.externalUrl) {
+    links.push({
+      label: 'external',
+      href: token.externalUrl,
+      icon: <Link size={15} />,
+    })
+  }
+
+  if (links.length === 0) return null
+
+  return (
+    <div className="metadata-links">
+      {links.map((item) => (
+        <a href={item.href} key={`${item.label}-${item.href}`} target="_blank" rel="noreferrer">
+          {item.icon}
+          {item.label}
+        </a>
+      ))}
+    </div>
+  )
+}
+
+function MetadataDetails({ token }: { token: TokenDossier }) {
+  const metadata = token.resolvedMetadata?.payload ?? token.privateMetadata ?? token.publicMetadata
+  if (!metadata) return null
+
+  return (
+    <details className="metadata-details">
+      <summary>Metadata JSON</summary>
+      <pre>{JSON.stringify(metadata, null, 2)}</pre>
+    </details>
+  )
+}
+
+function tokenStatus(token: TokenDossier) {
+  if (token.error) return 'query error'
+  if (token.resolvedMetadata?.error) return `metadata error: ${token.resolvedMetadata.error}`
+  if (token.resolvedMetadata?.payload) return 'metadata loaded'
+  return token.query
+}
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)
 }
 
 export default App
