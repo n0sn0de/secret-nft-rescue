@@ -9,12 +9,12 @@ Build and self-host a recovery app that helps Secret Network NFT owners recover 
 The app should be a recovery console, not a custodial marketplace.
 
 - Lightweight local backend for registry/cache persistence.
-- No mnemonic entry.
+- No wallet recovery phrase entry.
 - No permit persistence.
 - No private metadata sent to third-party servers by default.
 - Wallet queries still happen client-side through the user wallet.
 - Public endpoints are selectable because shared LCD nodes can degrade.
-- Collection discovery is registry-based because private ownership prevents reliable global wallet crawling.
+- Collection discovery is registry-based because private ownership prevents reliable global wallet crawling. The current community seed contains 2,001 Stashh-labeled contracts verified from Secret chain state; see `docs/SNIP721_REGISTRY_SOURCES.md`.
 
 ## MVP
 
@@ -59,7 +59,7 @@ The app should be a recovery console, not a custodial marketplace.
 ## Near-Term Iterations
 
 1. Add ZIP export with downloaded media where CORS allows it.
-2. Add trustworthy Stashh/community collection registry ingestion.
+2. Maintain trustworthy Stashh/community collection registry ingestion and review flow.
 3. Add viewing-key fallback for contracts without permit support.
 4. Add transfer helper for moving NFTs to a fresh wallet while the chain is live.
 5. Add collection-specific adapters for contracts that drift from the reference SNIP-721 shape.
