@@ -1,15 +1,25 @@
 # Security Model
 
-Secret NFT Rescue is designed as a browser-only tool.
+Secret NFT Rescue is designed as a self-hosted recovery tool with browser-side wallet queries and a local persistence API.
 
 ## Local By Default
 
 - Wallet signing stays in the wallet extension.
 - The app never asks for, accepts, or stores mnemonics.
 - Query permits are kept in memory only.
-- Token query results are not persisted automatically.
+- Token query results are cached in the local SQLite database after a scan.
 - Export files are explicit user downloads.
 - Fetching IPFS/HTTP token metadata is a browser-side request to the selected gateway or host. That gateway can see the requested CID/URL.
+
+## Local Database
+
+The API stores data in `.data/secret-nft-rescue.sqlite` by default:
+
+- Collection registry records.
+- Resolved contract code hashes learned during scans.
+- Latest wallet recovery archive by owner address.
+
+That cache can reveal wallet-to-NFT ownership relationships and recovered private metadata. Keep it on trusted infrastructure, back it up deliberately, and do not expose this app to the public internet without access control.
 
 ## Known Dependency Risk
 
@@ -19,7 +29,8 @@ Mitigation in this repo:
 
 - `protobufjs` is overridden to `7.6.5`.
 - The app uses injected wallet signers and does not derive keys from mnemonics.
-- The app avoids backend custody and secret collection.
+- The backend stores recovery cache data only on the self-hosted machine.
+- The backend never stores mnemonics or query permit signatures.
 
 Residual risk remains in browser wallet/SecretJS dependency code. Do not paste seed phrases into any web app, including this one.
 

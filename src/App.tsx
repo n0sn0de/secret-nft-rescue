@@ -29,6 +29,14 @@ import {
 } from './constants'
 import { downloadJson } from './lib/download'
 import {
+  deleteRegistryCollection,
+  fetchCollectionRegistry,
+  importRegistryCollections,
+  loadCachedScan,
+  saveCachedScan,
+  upsertRegistryCollection,
+} from './lib/api'
+import {
   collectionFromForm,
   mergeCollections,
   parseManifestImport,
@@ -67,8 +75,13 @@ function App() {
     state: 'idle',
     detail: 'Not checked',
   })
+  const [registryStatus, setRegistryStatus] = useState<EndpointHealth>({
+    state: 'checking',
+    detail: 'Registry loading',
+  })
   const [connection, setConnection] = useState<WalletConnection>()
   const [recoveries, setRecoveries] = useState<CollectionRecovery[]>([])
+  const [cachedAt, setCachedAt] = useState('')
   const [busy, setBusy] = useState('')
   const [notice, setNotice] = useState('')
   const importRef = useRef<HTMLInputElement>(null)
@@ -84,6 +97,48 @@ function App() {
     (total, recovery) => total + recovery.tokens.filter((token) => !token.error).length,
     0,
   )
+
+  useEffect(() => {
+    let active = true
+
+    async function loadRegistry() {
+      const localCollections = loadCollections()
+
+      try {
+        const serverCollections = await fetchCollectionRegistry()
+        const nextCollections =
+          serverCollections.length === 0 && localCollections.length > 0
+            ? await importRegistryCollections(localCollections)
+            : serverCollections
+
+        if (!active) return
+
+        setCollections(nextCollections)
+        saveCollections(nextCollections)
+        setRegistryStatus({
+          state: 'online',
+          detail: `Registry DB: ${nextCollections.length}`,
+        })
+      } catch (error) {
+        if (!active) return
+
+        setRegistryStatus({
+          state: 'offline',
+          detail: 'Registry local only',
+        })
+        if (localCollections.length > 0) {
+          setCollections(localCollections)
+        }
+        setNotice(`Registry API unavailable: ${errorMessage(error)}`)
+      }
+    }
+
+    void loadRegistry()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const runEndpointCheck = useCallback(async () => {
     setHealth({ state: 'checking', detail: 'Checking LCD' })
@@ -112,7 +167,7 @@ function App() {
     setFormError('')
   }
 
-  function addCollection() {
+  async function addCollection() {
     const error = validateCollectionForm(form)
     if (error) {
       setFormError(error)
@@ -120,14 +175,47 @@ function App() {
     }
 
     const collection = collectionFromForm(form)
-    setCollections((current) => mergeCollections(current, [collection]))
-    setForm(EMPTY_COLLECTION_FORM)
-    setNotice(`Added ${collection.name}.`)
+    setBusy('Saving collection')
+
+    try {
+      const nextCollections = await upsertRegistryCollection(collection)
+      setCollections(nextCollections)
+      setRegistryStatus({
+        state: 'online',
+        detail: `Registry DB: ${nextCollections.length}`,
+      })
+      setNotice(`Added ${collection.name} to the registry DB.`)
+    } catch (error) {
+      setCollections((current) => mergeCollections(current, [collection]))
+      setRegistryStatus({
+        state: 'offline',
+        detail: 'Registry local only',
+      })
+      setNotice(`Added locally. Registry API unavailable: ${errorMessage(error)}`)
+    } finally {
+      setForm(EMPTY_COLLECTION_FORM)
+      setBusy('')
+    }
   }
 
-  function removeCollection(id: string) {
+  async function removeCollection(id: string) {
     setCollections((current) => current.filter((collection) => collection.id !== id))
     setRecoveries((current) => current.filter((recovery) => recovery.collectionId !== id))
+
+    try {
+      const nextCollections = await deleteRegistryCollection(id)
+      setCollections(nextCollections)
+      setRegistryStatus({
+        state: 'online',
+        detail: `Registry DB: ${nextCollections.length}`,
+      })
+    } catch (error) {
+      setRegistryStatus({
+        state: 'offline',
+        detail: 'Registry local only',
+      })
+      setNotice(`Removed locally. Registry API unavailable: ${errorMessage(error)}`)
+    }
   }
 
   async function connect(provider: WalletProviderId) {
@@ -137,7 +225,19 @@ function App() {
     try {
       const walletConnection = await connectWallet(provider, selectedEndpoint)
       setConnection(walletConnection)
-      setNotice(`Connected ${shortAddress(walletConnection.address)}.`)
+
+      try {
+        const cached = await restoreCachedScan(walletConnection.address)
+        setNotice(
+          cached
+            ? `Connected ${shortAddress(walletConnection.address)}. Cached scan restored from ${formatCacheTime(cached.updatedAt)}.`
+            : `Connected ${shortAddress(walletConnection.address)}.`,
+        )
+      } catch (error) {
+        setNotice(
+          `Connected ${shortAddress(walletConnection.address)}. Cache unavailable: ${errorMessage(error)}`,
+        )
+      }
     } catch (error) {
       setNotice(errorMessage(error))
     } finally {
@@ -152,7 +252,7 @@ function App() {
     }
 
     if (collections.length === 0) {
-      setNotice('Add or import at least one collection.')
+      setNotice('Registry is empty. Import a community manifest or add a collection once; the server will keep it after restarts.')
       return
     }
 
@@ -186,6 +286,7 @@ function App() {
 
         try {
           const recovery = await recoverCollection(connection, collection, permitBundle)
+          await rememberResolvedCodeHash(collection, recovery.codeHash)
           nextRecoveries.push(recovery)
           setRecoveries((current) =>
             current.map((item) =>
@@ -210,7 +311,22 @@ function App() {
         }
       }
 
-      setNotice(`Recovery scan complete. ${countRecovered(nextRecoveries)} tokens loaded.`)
+      const archive = buildArchive(
+        connection,
+        selectedEndpoint.lcdUrl,
+        collections,
+        nextRecoveries,
+      )
+      const cacheNotice = await saveCachedScan(archive)
+        .then((scan) => {
+          setCachedAt(scan.updatedAt)
+          return ' Cache saved.'
+        })
+        .catch((error: unknown) => ` Cache save failed: ${errorMessage(error)}`)
+
+      setNotice(
+        `Recovery scan complete. ${countRecovered(nextRecoveries)} tokens loaded.${cacheNotice}`,
+      )
     } catch (error) {
       setNotice(errorMessage(error))
     } finally {
@@ -224,32 +340,7 @@ function App() {
       return
     }
 
-    const archive: RecoveryArchive = {
-      app: {
-        name: APP_NAME,
-        version: APP_VERSION,
-        generatedAt: new Date().toISOString(),
-      },
-      chain: {
-        chainId: CHAIN_ID,
-        endpoint: selectedEndpoint.lcdUrl,
-      },
-      owner: connection.address,
-      collections: collections.map((manifest) => ({
-        manifest,
-        recovery:
-          recoveries.find((recovery) => recovery.collectionId === manifest.id) ??
-          {
-            collectionId: manifest.id,
-            contractAddress: manifest.contractAddress,
-            codeHash: manifest.codeHash,
-            status: 'queued',
-            tokenIds: [],
-            tokens: [],
-            warnings: ['Not queried in this session.'],
-          },
-      })),
-    }
+    const archive = buildArchive(connection, selectedEndpoint.lcdUrl, collections, recoveries)
 
     downloadJson(`secret-nft-rescue-${connection.address}-${Date.now()}.json`, archive)
   }
@@ -266,12 +357,58 @@ function App() {
 
     try {
       const imported = parseManifestImport(JSON.parse(await file.text()))
-      setCollections((current) => mergeCollections(current, imported))
-      setNotice(`Imported ${imported.length} collection records.`)
+      try {
+        const nextCollections = await importRegistryCollections(imported)
+        setCollections(nextCollections)
+        setRegistryStatus({
+          state: 'online',
+          detail: `Registry DB: ${nextCollections.length}`,
+        })
+        setNotice(`Imported ${imported.length} collection records into the registry DB.`)
+      } catch (error) {
+        setCollections((current) => mergeCollections(current, imported))
+        setRegistryStatus({
+          state: 'offline',
+          detail: 'Registry local only',
+        })
+        setNotice(`Imported locally. Registry API unavailable: ${errorMessage(error)}`)
+      }
     } catch (error) {
       setNotice(`Import failed: ${errorMessage(error)}`)
     } finally {
       if (importRef.current) importRef.current.value = ''
+    }
+  }
+
+  async function restoreCachedScan(owner: string) {
+    const cached = await loadCachedScan(owner)
+    if (!cached) return undefined
+
+    const cachedCollections = cached.archive.collections.map((item) => item.manifest)
+    setCollections((current) => mergeCollections(current, cachedCollections))
+    setRecoveries(cached.archive.collections.map((item) => item.recovery))
+    setCachedAt(cached.updatedAt)
+
+    return cached
+  }
+
+  async function rememberResolvedCodeHash(
+    collection: CollectionManifest,
+    codeHash: string | undefined,
+  ) {
+    if (!codeHash || collection.codeHash === codeHash) return
+
+    const updatedCollection = { ...collection, codeHash }
+
+    try {
+      const nextCollections = await upsertRegistryCollection(updatedCollection)
+      setCollections(nextCollections)
+      setRegistryStatus({
+        state: 'online',
+        detail: `Registry DB: ${nextCollections.length}`,
+      })
+    } catch {
+      setCollections((current) => mergeCollections(current, [updatedCollection]))
     }
   }
 
@@ -284,6 +421,13 @@ function App() {
         </div>
         <div className="topbar-actions">
           <StatusPill label={`Target ${SNAPSHOT_LABEL}`} tone="warn" />
+          <StatusPill
+            label={registryStatus.detail}
+            tone={registryStatus.state === 'online' ? 'good' : registryStatus.state === 'offline' ? 'bad' : 'idle'}
+          />
+          {cachedAt ? (
+            <StatusPill label={`Cache ${formatCacheTime(cachedAt)}`} tone="good" />
+          ) : null}
           <StatusPill
             label={health.detail}
             tone={health.state === 'online' ? 'good' : health.state === 'offline' ? 'bad' : 'idle'}
@@ -415,7 +559,7 @@ function App() {
           </div>
 
           <div className="form-actions">
-            <button className="primary-button" type="button" onClick={addCollection}>
+            <button className="primary-button" type="button" onClick={() => void addCollection()}>
               <Plus size={18} />
               Add collection
             </button>
@@ -424,7 +568,9 @@ function App() {
 
           <div className="collection-list">
             {collections.length === 0 ? (
-              <div className="empty-state">No collections loaded.</div>
+              <div className="empty-state">
+                No collections in the registry DB. Import a community manifest or add a collection once.
+              </div>
             ) : (
               collections.map((collection) => (
                 <article className="collection-row" key={collection.id}>
@@ -440,7 +586,7 @@ function App() {
                     className="ghost-icon"
                     type="button"
                     title="Remove collection"
-                    onClick={() => removeCollection(collection.id)}
+                    onClick={() => void removeCollection(collection.id)}
                   >
                     <Trash2 size={17} />
                   </button>
@@ -459,11 +605,11 @@ function App() {
             <button
               className="primary-button"
               type="button"
-              disabled={Boolean(busy) || collections.length === 0}
+              disabled={Boolean(busy)}
               onClick={() => void runRecovery()}
             >
               {busy ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
-              {busy || 'Scan NFTs'}
+              {busy || 'Scan registry'}
             </button>
           </div>
 
@@ -471,6 +617,7 @@ function App() {
             <Metric label="Collections" value={collections.length} />
             <Metric label="Token IDs" value={recoveries.reduce((total, item) => total + item.tokenIds.length, 0)} />
             <Metric label="Loaded" value={recoveredTokenCount} />
+            <Metric label="Cached" value={cachedAt ? 1 : 0} />
           </div>
 
           <div className="recovery-list">
@@ -567,6 +714,54 @@ function countRecovered(recoveries: CollectionRecovery[]) {
     (total, recovery) => total + recovery.tokens.filter((token) => !token.error).length,
     0,
   )
+}
+
+function buildArchive(
+  connection: WalletConnection,
+  endpoint: string,
+  collections: CollectionManifest[],
+  recoveries: CollectionRecovery[],
+): RecoveryArchive {
+  return {
+    app: {
+      name: APP_NAME,
+      version: APP_VERSION,
+      generatedAt: new Date().toISOString(),
+    },
+    chain: {
+      chainId: CHAIN_ID,
+      endpoint,
+    },
+    owner: connection.address,
+    collections: collections.map((manifest) => {
+      const recovery = recoveries.find((item) => item.collectionId === manifest.id)
+
+      return {
+        manifest: {
+          ...manifest,
+          codeHash: recovery?.codeHash ?? manifest.codeHash,
+        },
+        recovery:
+          recovery ??
+          {
+            collectionId: manifest.id,
+            contractAddress: manifest.contractAddress,
+            codeHash: manifest.codeHash,
+            status: 'queued',
+            tokenIds: [],
+            tokens: [],
+            warnings: ['Not queried in this session.'],
+          },
+      }
+    }),
+  }
+}
+
+function formatCacheTime(value: string) {
+  return new Date(value).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function MediaPreview({ token }: { token: TokenDossier }) {

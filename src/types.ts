@@ -95,6 +95,13 @@ export type RecoveryArchive = {
   }>
 }
 
+export type CachedScan = {
+  owner: string
+  archive: RecoveryArchive
+  createdAt: string
+  updatedAt: string
+}
+
 export type PermitBundle = {
   permit: Permit
   permitName: string

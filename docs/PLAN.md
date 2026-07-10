@@ -2,18 +2,19 @@
 
 ## Goal
 
-Build and self-host a browser-only frontend that helps Secret Network NFT owners recover enough SNIP-721 data to preserve access before the proposed September 1, 2026 SCRT migration/support cutoff.
+Build and self-host a recovery app that helps Secret Network NFT owners recover enough SNIP-721 data to preserve access before the proposed September 1, 2026 SCRT migration/support cutoff.
 
 ## Product Shape
 
 The app should be a recovery console, not a custodial marketplace.
 
-- No backend required for MVP.
+- Lightweight local backend for registry/cache persistence.
 - No mnemonic entry.
 - No permit persistence.
-- No private metadata sent to our servers.
+- No private metadata sent to third-party servers by default.
+- Wallet queries still happen client-side through the user wallet.
 - Public endpoints are selectable because shared LCD nodes can degrade.
-- Collection discovery is manifest-based because private ownership prevents reliable global crawling.
+- Collection discovery is registry-based because private ownership prevents reliable global wallet crawling.
 
 ## MVP
 
@@ -33,10 +34,11 @@ The app should be a recovery console, not a custodial marketplace.
    - Optional code hash.
    - Optional token ID hints.
    - Import/export collection manifest JSON.
-   - Persist collection list in localStorage.
+   - Persist collection list in SQLite, mirrored to localStorage as a fallback.
 
 4. Recovery query
    - Resolve code hash by contract when missing.
+   - Save resolved code hashes back into the registry DB.
    - Sign one SNIP-721 query permit for selected collections.
    - Query owned token IDs with `with_permit -> tokens`.
    - Query each token with `with_permit -> nft_dossier`.
@@ -49,10 +51,15 @@ The app should be a recovery console, not a custodial marketplace.
    - Include app version, generated timestamp, owner address, endpoint, collections, token IDs, metadata/dossier payloads, resolved token URI payloads, media URLs, and errors.
    - Exclude query permit signatures.
 
+6. Cache
+   - Store latest wallet scan archive in local SQLite.
+   - Restore cached scan results after app restart and wallet reconnect.
+   - Treat the cache as sensitive self-hosted data, not a public index.
+
 ## Near-Term Iterations
 
 1. Add ZIP export with downloaded media where CORS allows it.
-2. Add community-maintained collection manifest URL loading.
+2. Add trustworthy Stashh/community collection registry ingestion.
 3. Add viewing-key fallback for contracts without permit support.
 4. Add transfer helper for moving NFTs to a fresh wallet while the chain is live.
 5. Add collection-specific adapters for contracts that drift from the reference SNIP-721 shape.
@@ -65,3 +72,4 @@ The app should be a recovery console, not a custodial marketplace.
 - Do any major Stashh-era contracts lack permit support?
 - Should the public hosted version disable media fetching by default and keep metadata-only export as the safest baseline?
 - Does Jason want this hosted under an existing app domain or as its own service?
+- Should shared deployments require sign-in before exposing cached wallet recovery data?
