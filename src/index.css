@@ -1,0 +1,72 @@
+:root {
+  --accent: #256f68;
+  --bad: #b42318;
+  --bad-bg: #fff1f0;
+  --bad-border: #ffc9c2;
+  --band: #f1f5f4;
+  --border: #dfe7e4;
+  --border-strong: #b9c8c3;
+  --focus: #6d5dfc;
+  --good: #13714c;
+  --good-bg: #eaf8f0;
+  --good-border: #a8dfbf;
+  --muted: #61716c;
+  --notice: #f6efd9;
+  --notice-text: #6b4b00;
+  --surface: #ffffff;
+  --text: #17211f;
+  --warn: #9a5b00;
+  --warn-bg: #fff6db;
+  --warn-border: #f0cf75;
+  background: #f7f9fb;
+  color: var(--text);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 16px;
+  font-synthesis: none;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+select,
+textarea {
+  letter-spacing: 0;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+h2 {
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 28px;
+  }
+}
